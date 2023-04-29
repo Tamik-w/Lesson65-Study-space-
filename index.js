@@ -1,17 +1,35 @@
 import express from "express";
 import mongoose from "mongoose";
 import { User } from "./model/user.js";
+import cookieParser from "cookie-parser";
+import csurf from "csurf";
+import jwt from "jsonwebtoken";
 
 const PORT = 3000;
-
 const url = "mongodb://127.0.0.1:27017/client";
-
 const app = express();
+const csrf = csurf({ cookie: true });
+const secretKey = "your-secret-key";
 
 app.use(express.static("css"));
 app.use(express.urlencoded({ extended: true }));
-
+app.use(cookieParser());
 app.set("view engine", "pug");
+
+const checkToken = (req, res, next) => {
+  const token = req.cookies.token;
+  if (token) {
+    jwt.verify(token, secretKey, (err, decoded) => {
+      if (err) {
+        return res.status(401).json({ message: "Invalid token" });
+      } else {
+        next();
+      }
+    });
+  } else {
+    return res.status(401).json({ message: "Token not found" });
+  }
+};
 
 mongoose
   .connect(url)
@@ -27,8 +45,21 @@ mongoose
 
 app.get("/", async (req, res) => {
   try {
+    const title = {};
+    let isAdmin = false;
+    if (req.cookies.username) {
+      title.text = `You are in administrator mode, to logout press `;
+      title.link = "http://localhost:3000/logout";
+      title.linkMessage = "log out";
+      isAdmin = true;
+    } else {
+      title.text = "If you are admin please ";
+      title.link = "http://localhost:3000/login";
+      title.linkMessage = "log in";
+      isAdmin = false;
+    }
     const users = await User.find();
-    res.render("index", { users });
+    res.render("index", { users, title, isAdmin });
   } catch (err) {
     console.log(err);
   }
@@ -44,14 +75,14 @@ app.post("/add", async (req, res) => {
   }
 });
 
-app.get("/edit/:id", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    res.render("edit", { user });
-  } catch (err) {
-    console.log(err);
-  }
-});
+app.get('/edit/:id', checkToken, async (req, res)=> {
+  try{
+      const course = await Course.findById(req.params.id)
+      res.render('edit', {course})
+  } catch(err){
+      console.log(err);
+  }});
+
 
 app.post("/change-user/:id", async (req, res) => {
   try {
@@ -71,6 +102,24 @@ app.delete("/remove/:id", async (req, res) => {
   }
 });
 
-app.get("/login", (req, res) => {
-  res.render("login");
+app.post('/set-cookie', csrf, async (req, res)=> {
+  const {name, password} = req.body;
+  if (name == 'admin' && password == '123'){
+      const token = jwt.sign({ name }, secretKey, { expiresIn: '1h' });
+      res.cookie('token', token);
+      res.cookie('username', name);
+      res.redirect('/');
+  } else {
+      res.redirect('/login')
+  }});
+
+
+app.get("/logout", (req, res) => {
+  res.clearCookie("username");
+  res.clearCookie("token");
+  res.redirect("/");
+});
+
+app.get("/login", csrf, (req, res) => {
+  res.render("login", { csrfToken: req.csrfToken() });
 });

@@ -7,8 +7,9 @@ html(lang="en")
     link(rel='stylesheet', href='/style.css')
     title Clients
   body
-    h1 If you are admin please  
-      a(href="http://localhost:3000/login") log in
+    h1 #{title.text}
+      a(href=`${title.link}`) #{title.linkMessage}
+  if isAdmin
     h2 Add User
     form(action="/add" class="add" method="POST")
       label(for="name") Name:
@@ -31,6 +32,7 @@ html(lang="en")
           .price Age #{user.age}
           .course-view-btn
           .course-btn
+        if isAdmin
             a(href=`/edit/${user._id}`) 
               button Edit
             button(type="button" onclick=`removeUser('${user._id}')`) Delete

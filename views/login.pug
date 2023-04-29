@@ -9,6 +9,7 @@ html(lang="en")
     body
         h1 Login page
         form(action="/set-cookie" class="add" method="POST")
+            input(type='hidden', name='_csrf', value=csrfToken)
             label(for="name") Name:
             input(id="name" name="name" autocomplete="none")
             label(for="password") Password:
